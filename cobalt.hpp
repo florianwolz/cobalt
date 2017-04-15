@@ -22,6 +22,7 @@
 #include <iostream>
 #include <vector>
 #include <map>
+#include <tuple>
 #include <memory>
 #include <algorithm>
 #include <numeric>
@@ -118,6 +119,11 @@ Arguments StripFlags(Arguments args, std::map<std::string, std::string>* flags=n
     return args;
 }
 
+/**
+    Calculate the Levenshtein distance between two strings.
+
+    See https://wikipedia.org/Levenshtein_Distance
+ */
 int LevenshteinDistance(std::string s, std::string t, bool ignoreCase) {
     if (ignoreCase) {
         s = ToLowerCase(s);
@@ -156,6 +162,12 @@ int LevenshteinDistance(std::string s, std::string t, bool ignoreCase) {
  */
 namespace detail {
 
+/**
+    Flags can have the following types.
+
+    With the help of template classes we convert the type into an enum value
+    and provide a method to parse the string into the desired type
+ */
 enum class Types {
     BOOL,
     INT,
@@ -173,60 +185,63 @@ template<>
 struct TypeToEnum<bool> {
     static Types Value() { return Types::BOOL; }
     static void Convert(bool& r, std::string value) { r = (value == "true") ? true : false;  }
+    static std::string From(bool v) { return (v) ? "true" : "false";  }
 };
 
 template<>
 struct TypeToEnum<char> {
     static Types Value() { return Types::CHAR; }
     static void Convert(char& r, std::string value) { r = (value.size() > 0) ? value[0] : static_cast<char>(0); }
+    static std::string From(char c) { return std::string(1, c); }
 };
 
 template<>
 struct TypeToEnum<int> {
     static Types Value() { return Types::INT; }
     static void Convert(int& r, std::string value) { r = std::stoi(value); }
+    static std::string From(int i) {return std::to_string(i); }
 };
 
 template<>
 struct TypeToEnum<short> {
     static Types Value() { return Types::INT; }
     static void Convert(short& r, std::string value) { r = std::stoi(value); }
+    static std::string From(short i) {return std::to_string(i); }
 };
 
 template<>
 struct TypeToEnum<long> {
     static Types Value() { return Types::INT; }
     static void Convert(long& r, std::string value) { r = std::stoi(value); }
+    static std::string From(long i) {return std::to_string(i); }
 };
 
 template<>
 struct TypeToEnum<long long> {
     static Types Value() { return Types::INT; }
     static void Convert(long long& r, std::string value) { r = std::stoi(value); }
+    static std::string From(long long i) {return std::to_string(i); }
 };
 
 template<>
 struct TypeToEnum<float> {
     static Types Value() { return Types::FLOAT; }
     static void Convert(float& r, std::string value) { r = std::stof(value); }
+    static std::string From(float i) {return std::to_string(i); }
 };
 
 template<>
 struct TypeToEnum<double> {
     static Types Value() { return Types::FLOAT; }
     static void Convert(double& r, std::string value) { r = std::stof(value); }
+    static std::string From(double i) {return std::to_string(i); }
 };
-
-/*template<>
-struct TypeToEnum<const char*> {
-    static Types Value() { return Types::STRING; }
-    static void Convert(const char*& r, std::string value) { r = value; }
-};*/
 
 template<>
 struct TypeToEnum<std::string> {
     static Types Value() { return Types::STRING; }
     static void Convert(std::string& r, std::string value) { r = value; }
+    static std::string From(std::string s) { return s; }
 };
 
 COBALT_ERROR(UnknownType, "The data type is not known");
@@ -264,26 +279,38 @@ struct Flag {
 };
 
 COBALT_ERROR(UnknownFlag, "Unknown flag");
+COBALT_ERROR(WrongType, "Cannot convert flag to this type");
 
 class Flags {
 public:
-    template<typename T>
-    void Add(T& Reference, std::string Long, std::string Short, std::string Description) {
+    void Add(Types type, std::string Long, std::string Short, std::string Description, std::function<void(std::string)> Setter) {
         std::shared_ptr<Flag> flag = std::make_shared<Flag>();
 
-        // Convert the data type to one of the registered types
-        // This will not compile if you call it with an exotic type.
-        flag->Type = TypeToEnum<T>::Value();
+        flag->Type = type;
 
-        flag->Short       = Short;
-        flag->Long        = Long;
-        flag->Description = Description;
+        flag->Short         = Short;
+        flag->Long          = Long;
+        flag->Description   = Description;
 
-        // Set the setter function of the flag
-        flag->Setter = std::bind(TypeToEnum<T>::Convert, std::ref(Reference), std::placeholders::_1);
+        flag->Setter        = Setter;
 
-        // Add the flag
         flags.push_back(std::move(flag));
+    }
+
+    template<typename T>
+    void Add(std::string Long, std::string Short, T Default, std::string Description, std::function<void(std::string)> Setter) {
+        Add(TypeToEnum<T>::Value(), Long, Short, Description, Setter);
+
+        // Set to the default value
+        Setter(TypeToEnum<T>::From(Default));
+    }
+
+    /**
+        Method to set the provided reference to the parsed value.
+     */
+    template<typename T>
+    void Add(T& Reference, std::string Long, std::string Short, std::string Description) {
+        Add(TypeToEnum<T>::Value(), Long, Short, Description, std::bind(TypeToEnum<T>::Convert, std::ref(Reference), std::placeholders::_1));
     }
 
     template<typename T>
@@ -363,6 +390,9 @@ public:
 
 COBALT_ERROR(NotRunnable, "The command is not runnable");
 
+/**
+    Internal class for a command. This is were the real magic happens.
+ */
 class Command : public std::enable_shared_from_this<Command> {
 public:
     typedef std::function<int(const Arguments&)>    HookType;
@@ -916,6 +946,59 @@ struct Convert<Parent, Children...> {
     }
 };
 
+class GlobalFlags {
+public:
+    static GlobalFlags* Instance() {
+        if (!instance) {
+            instance = new GlobalFlags();
+        }
+        return instance;
+    }
+
+    virtual ~GlobalFlags() {
+        instance = 0;
+    }
+private:
+    static GlobalFlags* instance;
+
+    Flags flags;
+    std::map<std::string, std::pair<Types, std::string>> registry;
+public:
+    void Add(Types Type, std::string Long, std::string Short, std::string Description) {
+        flags.Add(Type, Long, Short, Description, std::bind([&](std::string name, std::string value) {
+            registry[name].second = value;
+        } , Long, std::placeholders::_1));
+
+        registry[Long] = { Type, "" };
+    }
+
+    template<class T>
+    void Add(std::string Long, std::string Short, T Default, std::string Description) {
+        flags.Add(TypeToEnum<T>::Value(), Long, Short, Description, std::bind([&](std::string name, std::string value) {
+            registry[name].second = value;
+        } , Long, std::placeholders::_1));
+
+        registry[Long] = { TypeToEnum<T>::Value(), TypeToEnum<T>::From(Default) };
+    }
+
+    template<class T>
+    T Lookup(std::string Name) {
+        auto it = registry.find(Name);
+        if (it == registry.end())
+            throw UnknownFlagException();
+
+        if (TypeToEnum<T>::Value() != it->second.first) {
+            throw WrongTypeException();
+        }
+
+        return TypeToEnum<T>::Convert(it->second.second);
+    }
+protected:
+    GlobalFlags() {}
+};
+
+GlobalFlags* GlobalFlags::instance = 0;
+
 } /* namespace detail */
 
 /**
@@ -930,24 +1013,33 @@ struct Convert<Parent, Children...> {
 
         // cmd/serve.hpp
 
-        class ServeCommand : Cobalt::Command<ServeCommand> {
+        class PrintCommand : public Cobalt::Command<PrintCommand> {
         public:
             static std::string Use() {
-                return "serve [file]";
+                return "print [text to print]";
             }
 
             static std::string Short() {
-                return "Serve the specified file.";
+                return "Print the given text to screen";
             }
 
             static std::string Long() {
-                return "Long description.";
+                return "Print the given text to screen.";
             }
 
             int Run(const Cobalt::Arguments& args) {
                 for (auto& arg : args) {
-                    std::cout << arg << std::endl;
+                    std::cout << arg << " ";
                 }
+                std::cout << std::endl;
+            }
+        };
+
+        // cmd/root.hpp
+        class RootCommand : public Cobalt::Command<RootCommand, PrintCommand> {
+        public:
+            static std::string Use() {
+                return "echo";
             }
         };
 
@@ -956,9 +1048,7 @@ struct Convert<Parent, Children...> {
         ...
 
         int main(int argc, char** argv) {
-            auto root = Cobalt::CreateMainCommand("hugo");
-            Cobalt::AddSubCommand<ServeCommand>(root)();
-            root->Execute(argc, argv);
+            return Cobalt::Parse<RootCommand>(argc, argv)();
         }
  */
 template<class This, class... Children>
@@ -1034,9 +1124,8 @@ public:
         PersistentFlags.Add<T>(Ref, Long, Short, Default, Description);
     }
 
-    template<typename T>
-    void AddPersistentFlag(T& Ref, std::string Long, std::string Short, std::string Description) {
-        PersistentFlags.Add<T>(Ref, Long, Short, Description);
+    void AddPersistentFlag(detail::Types Type, std::string Long, std::string Short, std::string Description) {
+        PersistentFlags.Add(Type, Long, Short, Description);
     }
 
     template<typename T>
@@ -1057,12 +1146,6 @@ public:
     detail::Flags LocalFlags;
 };
 
-/*typename detail::Command::PointerType CreateMainCommand(std::string name) {
-        detail::Command::PointerType cmd = std::make_shared<detail::Command>();
-        cmd->Use = name;
-        return std::move(cmd);
-}
-
 template<class T>
 using CreateCommandFromClass = detail::Convert<T>;
 
@@ -1070,32 +1153,6 @@ typename detail::Command::PointerType CreateCommand() {
     detail::Command::PointerType cmd = std::make_shared<detail::Command>();
     return std::move(cmd);
 }
-
-template<class... Commands>
-struct AddSubCommands {
-    AddSubCommands(detail::Command::PointerType& cmd) : cmd(cmd) { }
-
-    void operator()() {
-        cmd = std::move(detail::Join<Commands...>()(std::move(cmd)));
-    }
-
-    detail::Command::PointerType cmd;
-};
-
-template<class T>
-using AddSubCommand = AddSubCommands<T>;
-
-template<class T>
-struct Execute {
-    Execute(T cmd) : cmd(cmd) { }
-
-    void operator()(int argc, char** argv) {
-        cmd->Execute(argc, argv);
-    }
-
-    T cmd;
-};
-*/
 
 template<class Root, class... Children>
 struct Parse {
@@ -1109,6 +1166,14 @@ struct Parse {
         return cmd->Execute(argc, argv);
     }
 };
+
+/**
+    Lookup of persistent flags
+ */
+template<class T>
+inline T Lookup(std::string name) {
+    return detail::GlobalFlags::Instance()->Lookup<T>(name);
+}
 
 } /* namespace Cobalt */
 #endif /* COBALT_HPP_INCLUDED */
