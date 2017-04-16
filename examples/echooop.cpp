@@ -63,5 +63,5 @@ public:
 };
 
 int main(int argc, char** argv) {
-    return Cobalt::Parse<RootCommand>(argc, argv)();
+    return Cobalt::Execute<RootCommand>(argc, argv);
 }

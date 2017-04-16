@@ -481,6 +481,8 @@ public:
         if (IsRunnable()) {
             if (HasAvailableFlags()) {
                 ss << "   " << UseLine() << " [flags]" << std::endl;
+            } if (HasAvailableSubCommands()) {
+                ss << "   " << CommandPath() << " [command]" << std::endl;
             } else {
                 ss << "   " << UseLine() << std::endl;
             }
@@ -1155,13 +1157,14 @@ typename detail::Command::PointerType CreateCommand() {
 }
 
 template<class Root, class... Children>
-struct Parse {
+struct Execute {
     int argc;
     char** argv;
 
-    Parse(int argc, char** argv) : argc(argc), argv(argv) {  }
+    Execute(int argc, char** argv) : argc(argc), argv(argv) {  }
 
-    int operator()() {
+    // Employ the fact that the result of a main method has to be an integer
+    operator int() {
         auto cmd = detail::Convert<Root, Children...>()();
         return cmd->Execute(argc, argv);
     }
