@@ -10,9 +10,9 @@ It shares with Cobra the following features:
 - [x] Nested subcommands
 - [x] Global, local and cascading flags
 - [x] Intelligent suggestions (`app srver`... did you mean `app server`?)
-- [ ] Automatic help generation for commands and flags
-- [ ] Automatic detailed help for `app help [command]`
-- [ ] Automatic help flag recognition of `-h`, `--help`, etc.
+- [x] Automatic help generation for commands and flags
+- [x] Automatic detailed help for `app help [command]`
+- [x] Automatic help flag recognition of `-h`, `--help`, etc.
 - [x] Command aliases so you can change things without breaking them
 
 Applications built with Cobalt commands are designed to be as user-friendly as possible.

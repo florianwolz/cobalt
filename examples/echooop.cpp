@@ -60,6 +60,10 @@ public:
     static std::string Use() {
         return "echooop";
     }
+
+    static std::string Short() {
+        return "Echooop can print text to screen.";
+    }
 };
 
 int main(int argc, char** argv) {

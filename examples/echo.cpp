@@ -4,7 +4,8 @@
 
 int main(int argc, char** argv) {
     // Create the main command of your executable
-    auto cobalt = Cobalt::CreateMainCommand("echo");
+    auto cobalt = Cobalt::CreateCommand();
+    cobalt->Use = "echo";
 
     // Create the print command
     auto cmdPrint = Cobalt::CreateCommand();

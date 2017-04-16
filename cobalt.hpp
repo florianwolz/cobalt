@@ -11,7 +11,7 @@
    distributed under the License is distributed on an "AS IS" BASIS,
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
-   limitations under the License.
+   limitations under the License.)
  */
 
 #ifndef COBALT_HPP_INCLUDED
@@ -552,7 +552,7 @@ public:
         }
 
         if (IsRunnable() || HasSubCommands()) {
-            UsageString();
+            ss << UsageString();
         }
 
         (*Output) << ss.str();
@@ -685,7 +685,7 @@ public:
     }
 
     bool IsRunnable() const {
-        return Run != nullptr;
+        return (Run != nullptr);
     }
 
     bool IsAvailableCommand() const {
@@ -738,24 +738,19 @@ public:
         cmdHelp->Use = "help [command]";
         cmdHelp->Short = "Help about any command";
         cmdHelp->Long = "Help provides help for any command in the application.\nSimply type " + Name() + " help [path to command] for details.";
-        cmdHelp->Run = [&](const Cobalt::Arguments& args) {
-            std::cout << "Called help" << std::endl;
+        cmdHelp->Run = std::bind([&](std::shared_ptr<Command> root, const Cobalt::Arguments& args) {
+            Cobalt::Arguments a = args;
+            auto tmp = root->Find(a);
+
+            // Print the help file
+            tmp->Help();
             return 0;
-        };
+        }, root, std::placeholders::_1);
+
+        root->AddCommand(std::move(cmdHelp));
     }
 
-    int Execute(Arguments args) {
-        // No matter which command was used for parsing, start at root
-        if (Parent) {
-            return Root()->Execute(args);
-        }
-
-        InjectHelpCommand();
-
-        // Strip all flags from the arguments
-        std::map<std::string, std::string> flags;
-        args = StripFlags(args, &flags);
-
+    std::shared_ptr<Command> Find(Arguments& args) {
         PointerType tmp = GetThisPointer();
 
         while (true) {
@@ -783,6 +778,31 @@ public:
 
             if (!cmdFound) break;
         }
+
+        return tmp;
+    }
+
+    int Execute(Arguments args) {
+        // Inject the help command into the root command
+        InjectHelpCommand();
+
+        // No matter which command was used for parsing, start at root
+        if (Parent) {
+            return Root()->Execute(args);
+        }
+
+        // Strip all flags from the arguments
+        std::map<std::string, std::string> flags;
+        args = StripFlags(args, &flags);
+
+        // Has help flag?
+        if (flags.find("--help") != flags.end() || flags.find("-h") != flags.end()) {
+            args.insert(args.begin(), "help");
+            return Execute(args);
+        }
+
+        // Climb through the graph until the final subcommand is found
+        PointerType tmp = Find(args);
 
         if (tmp == Root() && tmp->HasAvailableSubCommands() && args.size() > 0) {
             // The command was not found, print suggestions
