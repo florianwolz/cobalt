@@ -511,7 +511,9 @@ public:
         if (HasAvailableSubCommands()) {
             ss << std::endl << "Available commands:" << std::endl;
             for (auto& cmd : Commands) {
-                ss << "   " << Rpad(cmd->Name(), 20) << cmd->Short << std::endl;
+                if (cmd->IsAvailableCommand()) {
+                    ss << "   " << Rpad(cmd->Name(), 20) << cmd->Short << std::endl;
+                }
             }
         }
 
@@ -530,6 +532,21 @@ public:
             for (auto& flag : inherited) {
                 ss << "   " << flag->Usage() << std::endl;
             }
+        }
+
+        // Additional help topics
+        if (HasHelpSubCommands()) {
+            ss << std::endl << "Additional help topics:" << std::endl;
+            for (auto& cmd : Commands) {
+                if (cmd->IsAdditionalHelpTopicCommand()) {
+                    ss << "   " << Rpad(cmd->CommandPath(), 20) << cmd->Short << std::endl;
+                }
+            }
+        }
+
+        // Help notice
+        if (HasAvailableSubCommands()) {
+            ss << std::endl << "Use \"" << CommandPath() << " [command] --help\" for more information about a command." << std::endl;
         }
 
         // Output the result
@@ -691,6 +708,8 @@ public:
     bool IsAvailableCommand() const {
         if (Deprecated.size() > 0 || Hidden) return false;
 
+        //if (Name() == "help") return false;
+
         if (IsRunnable() || HasAvailableSubCommands()) return true;
 
         return false;
@@ -704,6 +723,25 @@ public:
         for (auto& cmd : Commands) {
             if (cmd->IsAvailableCommand()) return true;
         }
+        return false;
+    }
+
+    bool IsAdditionalHelpTopicCommand() const {
+        if (IsRunnable() || Deprecated.size() > 0 || Hidden) return false;
+
+        // if any non-help sub command is found, the command is not a 'help' command
+        for (auto& cmd : Commands) {
+            if (!cmd->IsAdditionalHelpTopicCommand()) return false;
+        }
+
+        return true;
+    }
+
+    bool HasHelpSubCommands() const {
+        for (auto& cmd : Commands) {
+            if (cmd->IsAdditionalHelpTopicCommand()) return true;
+        }
+
         return false;
     }
 
