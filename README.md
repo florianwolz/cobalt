@@ -1,4 +1,4 @@
-Cobalt is a header-only C++ library for creating modern CLI applications heavily inspired by the awesome Cobra go library.
+Cobalt is a header-only C++ library for creating modern CLI applications heavily inspired by the awesome [Cobra](http//github.com/spf13/cobra) go library.
 
 # Overview
 
