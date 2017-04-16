@@ -157,6 +157,12 @@ int LevenshteinDistance(std::string s, std::string t, bool ignoreCase) {
     return result;
 }
 
+// Error messages
+COBALT_ERROR(UnknownType, "The data type is not known");
+COBALT_ERROR(UnknownFlag, "Unknown flag");
+COBALT_ERROR(WrongType, "Cannot convert flag to this type");
+COBALT_ERROR(NotRunnable, "The command is not runnable");
+
 /**
     The internal part to get commands going
  */
@@ -244,8 +250,6 @@ struct TypeToEnum<std::string> {
     static std::string From(std::string s) { return s; }
 };
 
-COBALT_ERROR(UnknownType, "The data type is not known");
-
 /**
     Flag is the internal class to describe a CLI flag.
  */
@@ -278,8 +282,6 @@ struct Flag {
     }
 };
 
-COBALT_ERROR(UnknownFlag, "Unknown flag");
-COBALT_ERROR(WrongType, "Cannot convert flag to this type");
 
 class Flags {
 public:
@@ -387,8 +389,6 @@ private:
 public:
     bool ContinueOnError;
 };
-
-COBALT_ERROR(NotRunnable, "The command is not runnable");
 
 /**
     Internal class for a command. This is were the real magic happens.
@@ -1204,7 +1204,7 @@ public:
     }
 
     int Run(const Arguments& args) {
-        throw detail::NotRunnableException();
+        throw NotRunnableException();
         return -1;
     }
 
