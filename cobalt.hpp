@@ -396,6 +396,7 @@ COBALT_ERROR(NotRunnable, "The command is not runnable");
 class Command : public std::enable_shared_from_this<Command> {
 public:
     typedef std::function<int(const Arguments&)>    HookType;
+    typedef std::function<void(const Arguments&)>   PrePostHookType;
     typedef std::shared_ptr<Command>                PointerType;
 public:
     // The one-line usage message.
@@ -427,15 +428,15 @@ public:
     bool SilenceUsage;
 
     // PersistentPreRun: children of this command will inherit and execute.
-    HookType PersistentPreRun;
+    PrePostHookType PersistentPreRun;
     // PreRun: children of this command will not inherit.
-    HookType PreRun;
+    PrePostHookType PreRun;
     // Run: Typically the actual work. Most command will implement this.
     HookType Run;
     // PostRun: run after the Run command.
-    HookType PostRun;
+    PrePostHookType PostRun;
     // PersistentPostRun: children of this command will inherit and execute after PostRun.
-    HookType PersistentPostRun;
+    PrePostHookType PersistentPostRun;
 
     // The parent command
     PointerType Parent;
@@ -607,8 +608,6 @@ public:
             if (!result.Lookup(flag->Long)) {
                 result.Add(flag);
             }
-
-
         }
 
         return result;
@@ -820,6 +819,33 @@ public:
         return tmp;
     }
 
+    void ExecutePersistentPreHooks(Arguments args) const {
+        std::vector<PrePostHookType> hooks;
+
+        // Collect all persistent pre hooks
+        auto tmp = GetThisPointer();
+
+        while (tmp) {
+            if (tmp->PersistentPreRun) hooks.insert(hooks.begin(), tmp->PersistentPreRun);
+            tmp = tmp->Parent;
+        }
+
+        // Execute all
+        for (auto& hook : hooks) {
+            hook(args);
+        }
+    }
+
+    void ExecutePersistentPostHooks(Arguments args) const {
+        // Collect all persistent pre hooks
+        auto tmp = GetThisPointer();
+
+        while (tmp) {
+            if (tmp->PersistentPostRun) tmp->PersistentPostRun(args);
+            tmp = tmp->Parent;
+        }
+    }
+
     int Execute(Arguments args) {
         // Inject the help command into the root command
         InjectHelpCommand();
@@ -871,7 +897,22 @@ public:
 
             // Run the command
             try {
-                return tmp->Run(args);
+                // Execute the pre run hook, if set
+                if (PreRun) PreRun(args);
+
+                // Execute all persistent pre run hooks
+                ExecutePersistentPreHooks(args);
+
+                // Execute the actual run code
+                int code =  tmp->Run(args);
+
+                // Execute the persistent post hooks
+                ExecutePersistentPostHooks(args);
+
+                if (PostRun) PostRun(args);
+
+                // Return the result code
+                return code;
             } catch (NotRunnableException& e) {
                 tmp->Usage();
                 return 0;
@@ -935,24 +976,24 @@ struct Convert<T> {
         cmd->Annotations    = data->Annotations();
         cmd->Aliases        = data->Aliases();
 
-        cmd->PersistentPreRun     = std::bind([](CommandType cmd, const Arguments& args) -> int {
-            return static_cast<T*>(cmd->Data)->PersistentPreRun(args);
+        cmd->PersistentPreRun     = std::bind([](CommandType cmd, const Arguments& args) -> void {
+            static_cast<T*>(cmd->Data)->PersistentPreRun(args);
         }, cmd, std::placeholders::_1);
 
-        cmd->PreRun     = std::bind([](CommandType cmd, const Arguments& args) -> int {
-            return static_cast<T*>(cmd->Data)->PreRun(args);
+        cmd->PreRun     = std::bind([](CommandType cmd, const Arguments& args) -> void {
+            static_cast<T*>(cmd->Data)->PreRun(args);
         }, cmd, std::placeholders::_1);
 
         cmd->Run     = std::bind([](CommandType cmd, const Arguments& args) -> int {
             return static_cast<T*>(cmd->Data)->Run(args);
         }, cmd, std::placeholders::_1);
 
-        cmd->PostRun     = std::bind([](CommandType cmd, const Arguments& args) -> int {
-            return static_cast<T*>(cmd->Data)->PostRun(args);
+        cmd->PostRun     = std::bind([](CommandType cmd, const Arguments& args) -> void {
+            static_cast<T*>(cmd->Data)->PostRun(args);
         }, cmd, std::placeholders::_1);
 
-        cmd->PersistentPostRun     = std::bind([](CommandType cmd, const Arguments& args) -> int {
-            return static_cast<T*>(cmd->Data)->PersistentPostRun(args);
+        cmd->PersistentPostRun     = std::bind([](CommandType cmd, const Arguments& args) -> void {
+            static_cast<T*>(cmd->Data)->PersistentPostRun(args);
         }, cmd, std::placeholders::_1);
 
         /** Register flags **/
@@ -1154,12 +1195,12 @@ public:
         return false;
     }
 
-    int PersistentPreRun(const Arguments& args) {
-        return 0;
+    void PersistentPreRun(const Arguments& args) {
+        // do nothing
     }
 
-    int PreRun(const Arguments& args) {
-        return 0;
+    void PreRun(const Arguments& args) {
+        // do nothing
     }
 
     int Run(const Arguments& args) {
@@ -1167,12 +1208,12 @@ public:
         return -1;
     }
 
-    int PostRun(const Arguments& args) {
-        return 0;
+    void PostRun(const Arguments& args) {
+        // do nothing
     }
 
-    int PersistentPostRun(const Arguments& args) {
-        return 0;
+    void PersistentPostRun(const Arguments& args) {
+        // do nothing
     }
 public:
     void RegisterFlags() {
