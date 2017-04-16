@@ -1,3 +1,5 @@
+![logo](https://raw.githubusercontent.com/wiki/crazyphysicist/cobalt/logo.png "Cobalt")
+
 Cobalt is a header-only C++ library for creating modern CLI applications heavily inspired by the awesome [Cobra](http://github.com/spf13/cobra) go library.
 
 # Overview
@@ -6,9 +8,9 @@ Cobalt provides a simple interface to create powerful and modern CLI interfaces 
 
 It shares with Cobra the following features:
 - [x] subcommand-based CLIs: `app server`, `app fetch`, etc.
-- [x] Fully POSIX-compliant flags (including short & long versions)
+- [ ] Fully POSIX-compliant flags (including short & long versions)
 - [x] Nested subcommands
-- [x] Global, local and cascading flags
+- [ ] Global, local and cascading flags
 - [x] Intelligent suggestions (`app srver`... did you mean `app server`?)
 - [x] Automatic help generation for commands and flags
 - [x] Automatic detailed help for `app help [command]`

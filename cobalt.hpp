@@ -481,31 +481,31 @@ public:
         // Print the main usage
         if (IsRunnable()) {
             if (HasAvailableFlags()) {
-                ss << "   " << UseLine() << " [flags]" << std::endl;
+                ss << "  " << UseLine() << " [flags]" << std::endl;
             } if (HasAvailableSubCommands()) {
-                ss << "   " << CommandPath() << " [command]" << std::endl;
+                ss << "  " << CommandPath() << " [command]" << std::endl;
             } else {
-                ss << "   " << UseLine() << std::endl;
+                ss << "  " << UseLine() << std::endl;
             }
         } else {
             if (HasAvailableSubCommands()) {
-                ss << "   " << CommandPath() << " [command]" << std::endl;
+                ss << "  " << CommandPath() << " [command]" << std::endl;
             }
         }
 
         // Aliases
         if (Aliases.size() > 0) {
             ss << std::endl << "Aliases:" << std::endl;
-            ss << "   " << Name() << std::endl;
+            ss << "  " << Name() << std::endl;
             for (auto& alias : Aliases) {
-                ss << "   " << alias << std::endl;
+                ss << "  " << alias << std::endl;
             }
         }
 
         // Example
         if (HasExample()) {
             ss << std::endl << "Example:" << std::endl;
-            ss << "   " << Example << std::endl;
+            ss << "  " << Example << std::endl;
         }
 
         // Available commands
@@ -513,7 +513,7 @@ public:
             ss << std::endl << "Available commands:" << std::endl;
             for (auto& cmd : Commands) {
                 if (cmd->IsAvailableCommand() && cmd->Name() != "help") {
-                    ss << "   " << Rpad(cmd->Name(), 20) << cmd->Short << std::endl;
+                    ss << "  " << Rpad(cmd->Name(), 20) << cmd->Short << std::endl;
                 }
             }
         }
@@ -522,7 +522,7 @@ public:
         if (LocalFlags.Size() > 0) {
             ss << std::endl << "Flags:" << std::endl;
             for (auto& flag : LocalFlags) {
-                ss << "   " << flag->Usage() << std::endl;
+                ss << "  " << flag->Usage() << std::endl;
             }
         }
 
@@ -531,7 +531,7 @@ public:
         if (inherited.Size() > 0) {
             ss << std::endl << "Global Flags:" << std::endl;
             for (auto& flag : inherited) {
-                ss << "   " << flag->Usage() << std::endl;
+                ss << "  " << flag->Usage() << std::endl;
             }
         }
 
@@ -540,7 +540,7 @@ public:
             ss << std::endl << "Additional help topics:" << std::endl;
             for (auto& cmd : Commands) {
                 if (cmd->IsAdditionalHelpTopicCommand()) {
-                    ss << "   " << Rpad(cmd->CommandPath(), 20) << cmd->Short << std::endl;
+                    ss << "  " << Rpad(cmd->CommandPath(), 20) << cmd->Short << std::endl;
                 }
             }
         }
