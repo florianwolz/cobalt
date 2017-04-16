@@ -511,7 +511,7 @@ public:
         if (HasAvailableSubCommands()) {
             ss << std::endl << "Available commands:" << std::endl;
             for (auto& cmd : Commands) {
-                if (cmd->IsAvailableCommand()) {
+                if (cmd->IsAvailableCommand() && cmd->Name() != "help") {
                     ss << "   " << Rpad(cmd->Name(), 20) << cmd->Short << std::endl;
                 }
             }
