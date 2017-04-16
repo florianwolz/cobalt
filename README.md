@@ -35,7 +35,7 @@ as important changes to the API are more than likely in the future.
 There are two ways Cobalt can be used within projects. For small applications, one can generate the commands
 directly inside of the main function.
 
-```
+```cpp
 // main.cpp
 #include <iostream>
 #include <cobalt.hpp>
@@ -73,7 +73,7 @@ int main(int argc, char** argv) {
 For large applications, the commands can be declared inside of separate
 classes. This allows to split the commands into separate headers. The echo example from
 above could be implemented in the following fashion:
-```
+```cpp
 // cmd/print.hpp
 #include <iostream>
 #include <cobalt.hpp>
@@ -135,16 +135,19 @@ int main(int argc, char** argv) {
 
 Cobalt is best used in a Cmake project. Usage in a project boils down to a simple
 
-   > mkdir thirdparty && cd thirdparty
-   > git submodule add https://github.com/crazyphysicist/cobalt.git
-   > cp FindCobalt.cmake ../cmake/ && cd ..
+```
+$ mkdir thirdparty && cd thirdparty
+$ git submodule add https://github.com/crazyphysicist/cobalt.git
+$ cp FindCobalt.cmake ../cmake/ && cd ..
+```
 
 and adding
 
-   FIND_PACKAGE(Cobalt REQUIRED)
-   ...
-   INCLUDE_DIRECTORIES(${COBALT_INCLUDE_DIRS})
-
+```cmake
+FIND_PACKAGE(Cobalt REQUIRED)
+...
+INCLUDE_DIRECTORIES(${COBALT_INCLUDE_DIRS})
+```
 to your `CMakelists.txt` file.
 
 # Copyright
