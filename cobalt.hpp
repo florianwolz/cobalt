@@ -1265,7 +1265,7 @@ struct Execute {
     Execute(int argc, char** argv) : argc(argc), argv(argv) {  }
 
     // Convert the command and execute it
-    inline int operator() {
+    inline int operator()() {
         auto cmd = detail::Convert<Root, Children...>()();
         return cmd->Execute(argc, argv);
     }
