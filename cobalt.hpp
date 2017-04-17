@@ -762,6 +762,7 @@ public:
     }
 public:
     void AddCommand(PointerType cmd) {
+        IsSorted = false;
         cmd->Parent = GetThisPointer();
         Commands.push_back(cmd);
 
@@ -897,19 +898,20 @@ public:
 
             // Run the command
             try {
-                // Execute the pre run hook, if set
-                if (PreRun) PreRun(args);
-
                 // Execute all persistent pre run hooks
                 ExecutePersistentPreHooks(args);
 
+                // Execute the pre run hook, if set
+                if (PreRun) PreRun(args);
+
                 // Execute the actual run code
-                int code =  tmp->Run(args);
+                int code = tmp->Run(args);
+
+                // Execute the local post hook
+                if (PostRun) PostRun(args);
 
                 // Execute the persistent post hooks
                 ExecutePersistentPostHooks(args);
-
-                if (PostRun) PostRun(args);
 
                 // Return the result code
                 return code;
@@ -917,7 +919,7 @@ public:
                 tmp->Usage();
                 return 0;
             }
-        }else {
+        } else {
             tmp->Usage();
             return 0;
         }
@@ -1013,7 +1015,7 @@ template<class Child, class... Children>
 struct Join<Child, Children...> {
     typedef typename Command::PointerType CommandType;
 
-    CommandType operator()(CommandType cmd) {
+    inline CommandType operator()(CommandType cmd) {
         return std::move(Join<Children...>()(std::move(Join<Child>()(cmd))));
     }
 };
@@ -1022,7 +1024,7 @@ template<class Child>
 struct Join<Child> {
     typedef typename Command::PointerType CommandType;
 
-    CommandType operator()(CommandType cmd) {
+    inline CommandType operator()(CommandType cmd) {
         auto subcmd = Convert<Child>()();
         cmd->AddCommand(std::move(subcmd));
         return std::move(cmd);
@@ -1033,7 +1035,7 @@ template<>
 struct Join<> {
     typedef typename Command::PointerType CommandType;
 
-    CommandType operator()(CommandType cmd) {
+    inline CommandType operator()(CommandType cmd) {
         return std::move(cmd);
     }
 };
@@ -1042,7 +1044,7 @@ template<class Parent, class... Children>
 struct Convert<Parent, Children...> {
     typedef typename Command::PointerType CommandType;
 
-    CommandType operator()() {
+    inline CommandType operator()() {
         return std::move(Join<Children...>(std::move(Convert<Parent>()())));
     }
 };
@@ -1250,7 +1252,7 @@ public:
 template<class T>
 using CreateCommandFromClass = detail::Convert<T>;
 
-typename detail::Command::PointerType CreateCommand() {
+inline typename detail::Command::PointerType CreateCommand() {
     detail::Command::PointerType cmd = std::make_shared<detail::Command>();
     return std::move(cmd);
 }
@@ -1262,10 +1264,15 @@ struct Execute {
 
     Execute(int argc, char** argv) : argc(argc), argv(argv) {  }
 
-    // Employ the fact that the result of a main method has to be an integer
-    operator int() {
+    // Convert the command and execute it
+    inline int operator() {
         auto cmd = detail::Convert<Root, Children...>()();
         return cmd->Execute(argc, argv);
+    }
+
+    // Employ the fact that the result of a main method has to be an integer
+    inline operator int() {
+        return (*this)();
     }
 };
 
