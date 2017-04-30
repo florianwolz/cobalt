@@ -1284,5 +1284,8 @@ inline T Lookup(std::string name) {
     return detail::GlobalFlags::Instance()->Lookup<T>(name);
 }
 
+// Undefine the COBALT_ERROR macro
+#undef COBALT_ERROR
+
 } /* namespace Cobalt */
 #endif /* COBALT_HPP_INCLUDED */

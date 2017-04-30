@@ -274,9 +274,9 @@ public:
 };
 ```
 
-# Licence
+# License
 
-Cobalt is released under the Apache 2.0 licence. See [LICENCE](https://github.com/crazyphysicist/cobalt/blob/master/LICENCE.txt)
+Cobalt is released under the Apache 2.0 licence. See [LICENSE](https://github.com/crazyphysicist/cobalt/blob/master/LICENSE.txt)
 
 Crafted with :heart: and lots of :coffee:.
 
