@@ -23,6 +23,7 @@
 #include <vector>
 #include <map>
 #include <utility>
+#include <functional>
 #include <tuple>
 #include <memory>
 #include <algorithm>
@@ -1051,59 +1052,6 @@ struct Convert<Parent, Children...> {
     }
 };
 
-class GlobalFlags {
-public:
-    static GlobalFlags* Instance() {
-        if (!instance) {
-            instance = new GlobalFlags();
-        }
-        return instance;
-    }
-
-    virtual ~GlobalFlags() {
-        instance = 0;
-    }
-private:
-    static GlobalFlags* instance;
-
-    Flags flags;
-    std::map<std::string, std::pair<Types, std::string>> registry;
-public:
-    void Add(Types Type, std::string Long, std::string Short, std::string Description) {
-        flags.Add(Type, Long, Short, Description, std::bind([&](std::string name, std::string value) {
-            registry[name].second = value;
-        } , Long, std::placeholders::_1));
-
-        registry[Long] = { Type, "" };
-    }
-
-    template<class T>
-    void Add(std::string Long, std::string Short, T Default, std::string Description) {
-        flags.Add(TypeToEnum<T>::Value(), Long, Short, Description, std::bind([&](std::string name, std::string value) {
-            registry[name].second = value;
-        } , Long, std::placeholders::_1));
-
-        registry[Long] = { TypeToEnum<T>::Value(), TypeToEnum<T>::From(Default) };
-    }
-
-    template<class T>
-    T Lookup(std::string Name) {
-        auto it = registry.find(Name);
-        if (it == registry.end())
-            throw UnknownFlagException();
-
-        if (TypeToEnum<T>::Value() != it->second.first) {
-            throw WrongTypeException();
-        }
-
-        return TypeToEnum<T>::Convert(it->second.second);
-    }
-protected:
-    GlobalFlags() {}
-};
-
-GlobalFlags* GlobalFlags::instance = 0;
-
 } /* namespace detail */
 
 /**
@@ -1242,6 +1190,11 @@ public:
     void AddLocalFlag(T& Ref, std::string Long, std::string Short, std::string Description) {
         PersistentFlags.Add<T>(Ref, Long, Short, Description);
     }
+
+    /*template<typename T>
+    T Lookup(std::string name) {
+        return ;
+    }*/
 public:
     static std::shared_ptr<detail::Command> CreateChildren(std::shared_ptr<detail::Command> cmd) {
         return detail::Join<Children...>()(cmd);
@@ -1277,14 +1230,6 @@ struct Execute {
         return (*this)();
     }
 };
-
-/**
-    Lookup of persistent flags
- */
-template<class T>
-inline T Lookup(std::string name) {
-    return detail::GlobalFlags::Instance()->Lookup<T>(name);
-}
 
 // Undefine the COBALT_ERROR macro
 #undef COBALT_ERROR
