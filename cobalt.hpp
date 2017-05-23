@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <numeric>
 #include <cctype>
+#include <stdexcept>
 
 namespace Cobalt {
 
