@@ -30,6 +30,8 @@
 #include <numeric>
 #include <cctype>
 #include <stdexcept>
+#include <typeinfo>
+#include <typeindex>
 
 namespace Cobalt {
 
@@ -111,7 +113,16 @@ Arguments StripFlags(Arguments args, std::map<std::string, std::string>* flags=n
                 newFlag.second = "true";
             }
 
-            if (flags) flags->insert(newFlag);
+            // If in the short form AND the param is a switch, split
+            if (Trim(newFlag.first[0]) == '-' && newFlag.second == "true") {
+                for (int i=1; i<newFlag.first.length(); ++i) {
+                    if (flags) {
+                        flags->insert({ "-" + std::string(1, newFlag.first[i]), "true" });
+                    }
+                }
+            } else {
+                if (flags) flags->insert(newFlag);
+            }
 
             // Remove the argument from the list
             args.erase(args.begin() + i);
@@ -1183,12 +1194,12 @@ public:
 
     template<typename T>
     void AddLocalFlag(T& Ref, std::string Long, std::string Short, T Default, std::string Description) {
-        PersistentFlags.Add<T>(Ref, Long, Short, Default, Description);
+        LocalFlags.Add<T>(Ref, Long, Short, Default, Description);
     }
 
     template<typename T>
     void AddLocalFlag(T& Ref, std::string Long, std::string Short, std::string Description) {
-        PersistentFlags.Add<T>(Ref, Long, Short, Description);
+        LocalFlags.Add<T>(Ref, Long, Short, Description);
     }
 
     /*template<typename T>
