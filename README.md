@@ -8,9 +8,9 @@ Cobalt provides a simple interface to create powerful and modern CLI interfaces 
 
 It shares with Cobra the following features:
 - [x] subcommand-based CLIs: `app server`, `app fetch`, etc.
-- [ ] Fully POSIX-compliant flags (including short & long versions)
+- [x] Fully POSIX-compliant flags (including short & long versions)
 - [x] Nested subcommands
-- [ ] Global, local and cascading flags
+- [x] Global, local and cascading flags
 - [x] Intelligent suggestions (`app srver`... did you mean `app server`?)
 - [x] Automatic help generation for commands and flags
 - [x] Automatic detailed help for `app help [command]`
@@ -72,6 +72,15 @@ public:
 ```
 
 ## Flags
+
+Flags give the user additional ways to configure the application. Cobalt supports full POSIX-compliant flags.
+A command can define flags that persist through to all children or flags that are only available to that command.
+
+For example, in
+```
+$ app command --debug --port=8080
+```
+two flags are set: `debug` mode is turned on and the `port` is set to 8080.
 
 # Getting Started
 
@@ -225,7 +234,49 @@ return Cobalt::Execute<RootCommand>(argc, argv);
 
 ## Flags
 
-Flags can be either local or persistent.
+Flags provide modifiers to control how the action command operates. They can be either local or persistent through
+all children commands.
+
+In inline mode, the variables are simply connected to the flags by calling `cmd->LocalFlags.Add` or `cmd->PersistentFlags.Add`
+```cpp
+int port;
+bool debug;
+
+serve->LocalFlags.Add<int>(port, "port", "p", 8080, "The port of the server");
+serve->PersistentFlags.Add<bool>(debug, "debug", "d", false, "Debug mode. Print all steps!");
+```
+
+When using the class DSL, flags are registered by extending the `RegisterFlags` method
+```cpp
+class ServeCommand : public Cobalt::Command<ServeCommand> {
+public:
+    // ...
+
+    void RegisterFlags() {
+        // Add local flag
+        AddLocalFlag<int>(port, "port", "p", 8080, "The port of the server");
+
+        // Add persistent flag
+        AddPersistentFlag<bool>(debug, "debug", "d", false, "Debug mode. Print all steps!");
+    }
+
+    int Run(const Cobalt::Arguments& args) {
+        // Pseudo code to start the server
+        Http::Server server(port);
+
+        // Lookup the persistent flag
+        if (Lookup<bool>("debug")) {
+            std::cout << "Started server on port " << port << std::endl;
+        }
+    }
+private:
+    int port;
+    bool debug;
+};
+```
+Here, the flags are private members of the command. For local flags one can simply access the property directly.
+In case of persistent flags this is only possible if the flag is defined at this level. To access the persistent
+flags of parent commands, use the `Lookup` template function as in the example above.
 
 # Installing
 

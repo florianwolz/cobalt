@@ -114,7 +114,7 @@ Arguments StripFlags(Arguments args, std::map<std::string, std::string>* flags=n
             }
 
             // If in the short form AND the param is a switch, split
-            if (Trim(newFlag.first[0]) == '-' && newFlag.second == "true") {
+            if (Trim(newFlag.first)[0] == '-' && newFlag.second == "true") {
                 for (int i=1; i<newFlag.first.length(); ++i) {
                     if (flags) {
                         flags->insert({ "-" + std::string(1, newFlag.first[i]), "true" });
@@ -176,6 +176,7 @@ COBALT_ERROR(UnknownType, "The data type is not known");
 COBALT_ERROR(UnknownFlag, "Unknown flag");
 COBALT_ERROR(WrongType, "Cannot convert flag to this type");
 COBALT_ERROR(NotRunnable, "The command is not runnable");
+COBALT_ERROR(TalkbackNotFound, "The talkback pointer was not set");
 
 /**
     The internal part to get commands going
@@ -278,6 +279,8 @@ struct Flag {
     std::string Description;
     // Method to set the value
     std::function<void(std::string)> Setter;
+    // The bare value
+    std::string BareValue;
 
     std::string Usage() const {
         std::string result;
@@ -316,6 +319,9 @@ public:
     template<typename T>
     void Add(std::string Long, std::string Short, T Default, std::string Description, std::function<void(std::string)> Setter) {
         Add(TypeToEnum<T>::Value(), Long, Short, Description, Setter);
+
+        // Set the bare value to the default
+        Lookup(Long)->BareValue = Default;
 
         // Set to the default value
         Setter(TypeToEnum<T>::From(Default));
@@ -395,6 +401,7 @@ public:
             }
 
             // Call the setter with the argument
+            flag->BareValue = pair.second;
             flag->Setter(pair.second);
         }
     }
@@ -541,10 +548,10 @@ public:
         }
 
         // Global Flags
-        auto inherited = InheritedFlags();
-        if (inherited.Size() > 0) {
+        MergePersistentFlags();
+        if (PersistentFlags.Size() > 0) {
             ss << std::endl << "Global Flags:" << std::endl;
-            for (auto& flag : inherited) {
+            for (auto& flag : PersistentFlags) {
                 ss << "  " << flag->Usage() << std::endl;
             }
         }
@@ -981,6 +988,9 @@ struct Convert<T> {
         T* data = new T();
         cmd->Data = (void*) (data);
 
+        // Establish the talkback for the DSL command class
+        data->data = cmd;
+
         cmd->Use            = data->Use();
         cmd->Long           = data->Long();
         cmd->Short          = data->Short();
@@ -1014,9 +1024,6 @@ struct Convert<T> {
 
         /** Register flags **/
         data->RegisterFlags();
-
-        cmd->PersistentFlags = data->PersistentFlags;
-        cmd->LocalFlags = data->LocalFlags;
 
         /** Automatically create children for the command **/
         cmd = T::CreateChildren(cmd);
@@ -1185,34 +1192,47 @@ public:
 
     template<typename T>
     void AddPersistentFlag(T& Ref, std::string Long, std::string Short, T Default, std::string Description) {
-        PersistentFlags.Add<T>(Ref, Long, Short, Default, Description);
+        data->PersistentFlags.Add<T>(Ref, Long, Short, Default, Description);
     }
 
     void AddPersistentFlag(detail::Types Type, std::string Long, std::string Short, std::string Description) {
-        PersistentFlags.Add(Type, Long, Short, Description);
+        data->PersistentFlags.Add(Type, Long, Short, Description);
     }
 
     template<typename T>
     void AddLocalFlag(T& Ref, std::string Long, std::string Short, T Default, std::string Description) {
-        LocalFlags.Add<T>(Ref, Long, Short, Default, Description);
+        data->LocalFlags.Add<T>(Ref, Long, Short, Default, Description);
     }
 
     template<typename T>
     void AddLocalFlag(T& Ref, std::string Long, std::string Short, std::string Description) {
-        LocalFlags.Add<T>(Ref, Long, Short, Description);
+        data->LocalFlags.Add<T>(Ref, Long, Short, Description);
     }
 
-    /*template<typename T>
+    template<typename T>
     T Lookup(std::string name) {
-        return ;
-    }*/
+        if (!data) throw TalkbackNotFoundException();
+
+        // Lookup the names in all the flags, local and persistent
+        auto flag = data->FullFlags().Lookup(name);
+
+        // If the flag was not found, throw an exception
+        if (!flag) throw UnknownFlagException();
+
+        T result;
+
+        // Convert to the result type
+        detail::TypeToEnum<T>::Convert(result, flag->BareValue);
+
+        return result;
+    }
 public:
     static std::shared_ptr<detail::Command> CreateChildren(std::shared_ptr<detail::Command> cmd) {
         return detail::Join<Children...>()(cmd);
     }
-public:
-    detail::Flags PersistentFlags;
-    detail::Flags LocalFlags;
+private:
+    friend class detail::Convert<This>;
+    std::shared_ptr<detail::Command> data;
 };
 
 template<class T>
