@@ -1185,6 +1185,10 @@ public:
     void PersistentPostRun(const Arguments& args) {
         // do nothing
     }
+    
+    void Help() {
+        data->Help();
+    }
 public:
     void RegisterFlags() {
         // do nothing
